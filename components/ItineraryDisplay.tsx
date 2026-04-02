@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import type { Itinerary, DayPlan, Activity, ActivityType } from '../types';
 import { FoodIcon } from './icons/FoodIcon';
 import { SightseeingIcon } from './icons/SightseeingIcon';
@@ -8,10 +8,10 @@ import { TravelIcon } from './icons/TravelIcon';
 import { ShoppingIcon } from './icons/ShoppingIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { MapPinIcon } from './icons/MapPinIcon';
-import { Download, FileText, Sparkles } from 'lucide-react';
+import { Download, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { PDFDownloadLink } from '@react-pdf/renderer';
+import { ItineraryPDF } from './ItineraryPDF';
 
 interface ItineraryDisplayProps {
   itinerary: Itinerary | null;
@@ -73,158 +73,6 @@ const WelcomeMessage: React.FC = () => (
 export const ItineraryDisplay: React.FC<ItineraryDisplayProps> = ({ itinerary, isLoading, error }) => {
   const itineraryRef = useRef<HTMLDivElement>(null);
 
-  const [isDownloading, setIsDownloading] = useState(false);
-
-  const downloadPdf = async () => {
-    if (!itinerary || isDownloading) return;
-    setIsDownloading(true);
-
-    try {
-      const doc = new jsPDF({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 25; // Increased margin for a cleaner look
-      const contentWidth = pageWidth - (margin * 2);
-      let yOffset = 0;
-
-      // --- Header ---
-      doc.setFillColor(15, 23, 42); // Slate 900
-      doc.rect(0, 0, pageWidth, 55, 'F');
-      
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(32);
-      doc.setTextColor(255, 255, 255);
-      doc.text('WanderWise', margin, 25);
-      
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(203, 213, 225); // Slate 300
-      doc.text(`Your ${itinerary.duration}-day trip to ${itinerary.destination}`, margin, 38);
-      
-      yOffset = 75;
-
-      // --- Itinerary Content ---
-      for (const day of itinerary.itinerary) {
-        // Check if we need a new page for the day title
-        if (yOffset > pageHeight - 60) {
-          doc.addPage();
-          yOffset = 30;
-        }
-
-        // Day Title
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(24);
-        doc.setTextColor(15, 23, 42);
-        doc.text(`Day ${day.day}: ${day.title}`, margin, yOffset);
-        yOffset += 15;
-
-        // Day Image
-        if (day.imageUrl) {
-          try {
-            const imgWidth = contentWidth;
-            const imgHeight = (imgWidth * 9) / 16; // Maintain 16:9 aspect ratio
-            
-            // Check if image fits on current page
-            if (yOffset + imgHeight > pageHeight - 30) {
-              doc.addPage();
-              yOffset = 30;
-            }
-
-            // Add a subtle border around the image
-            doc.setDrawColor(241, 245, 249); // Slate 100
-            doc.setLineWidth(0.5);
-            doc.rect(margin - 0.5, yOffset - 0.5, imgWidth + 1, imgHeight + 1);
-            
-            doc.addImage(day.imageUrl, 'JPEG', margin, yOffset, imgWidth, imgHeight, undefined, 'MEDIUM');
-            yOffset += imgHeight + 20;
-          } catch (e) {
-            console.error('Failed to add image to PDF', e);
-          }
-        }
-
-        // Activities
-        for (const activity of day.activities) {
-          // Process bullet points
-          const points = activity.description
-            .split('\n')
-            .map(p => p.trim().replace(/^[•\-\*]\s*/, ''))
-            .filter(p => p.length > 0);
-          
-          // Estimate height needed
-          let neededHeight = 15; // Title + spacing
-          points.forEach(p => {
-            const lines = doc.splitTextToSize(p, contentWidth - 10);
-            neededHeight += (lines.length * 6) + 2;
-          });
-
-          if (yOffset + neededHeight > pageHeight - 25) {
-            doc.addPage();
-            yOffset = 30;
-          }
-
-          // Activity Time & Type
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(13);
-          doc.setTextColor(30, 41, 59); // Slate 800
-          doc.text(`${activity.time} • ${activity.type.toUpperCase()}`, margin, yOffset);
-          yOffset += 8;
-
-          // Activity Description (Bullet points style)
-          doc.setFont('helvetica', 'normal');
-          doc.setFontSize(11);
-          doc.setTextColor(71, 85, 105); // Slate 600
-          
-          points.forEach(point => {
-            const lines = doc.splitTextToSize(point, contentWidth - 10);
-            
-            // Draw bullet point
-            doc.setFont('helvetica', 'bold');
-            doc.text('•', margin, yOffset);
-            
-            // Draw text
-            doc.setFont('helvetica', 'normal');
-            doc.text(lines, margin + 6, yOffset);
-            
-            yOffset += (lines.length * 6) + 2;
-          });
-          
-          yOffset += 8; // Space after activity
-        }
-
-        // Subtle divider between days
-        if (itinerary.itinerary.indexOf(day) < itinerary.itinerary.length - 1) {
-          if (yOffset < pageHeight - 30) {
-            doc.setDrawColor(226, 232, 240); // Slate 200
-            doc.setLineWidth(0.2);
-            doc.line(margin, yOffset, pageWidth - margin, yOffset);
-            yOffset += 20;
-          }
-        }
-      }
-
-      // --- Footer ---
-      const totalPages = doc.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(10);
-        doc.setTextColor(148, 163, 184);
-        doc.text(`Page ${i} of ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-        doc.text('Generated by WanderWise AI Trip Planner', margin, pageHeight - 10);
-      }
-
-      doc.save(`WanderWise-${itinerary.destination.replace(/\s+/g, '-')}.pdf`);
-    } catch (error) {
-      console.error('PDF generation failed:', error);
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
   if (isLoading) {
     return <LoadingSkeleton />;
   }
@@ -278,25 +126,18 @@ export const ItineraryDisplay: React.FC<ItineraryDisplayProps> = ({ itinerary, i
           )}
         </div>
         
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={downloadPdf}
-          disabled={isDownloading}
-          className={`flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-slate-800 transition-colors ${isDownloading ? 'opacity-70 cursor-not-allowed' : ''}`}
+        <PDFDownloadLink
+          document={<ItineraryPDF itinerary={itinerary} />}
+          fileName={`WanderWise-${itinerary.destination.replace(/\s+/g, '-')}.pdf`}
+          className="flex items-center gap-2 bg-slate-900 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-slate-800 transition-colors"
         >
-          {isDownloading ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Generating...
-            </>
-          ) : (
+          {({ loading }) => (
             <>
               <Download className="w-5 h-5" />
-              Download PDF
+              {loading ? 'Generating PDF...' : 'Download PDF'}
             </>
           )}
-        </motion.button>
+        </PDFDownloadLink>
       </div>
       
       <div ref={itineraryRef} className="space-y-10 pb-10">
@@ -367,7 +208,7 @@ const DayCard: React.FC<{ dayPlan: DayPlan; index: number }> = ({ dayPlan, index
 
 const ActivityItem: React.FC<{ activity: Activity }> = ({ activity }) => {
   // Split description by bullet points if they exist
-  const points = activity.description.split('\n').map(p => p.trim().replace(/^[•\-\*]\s*/, '')).filter(p => p.length > 0);
+  const points = activity.description.split('•').map(p => p.trim()).filter(p => p.length > 0);
 
   return (
     <div className="flex items-start space-x-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors border border-transparent hover:border-slate-100">
@@ -383,15 +224,11 @@ const ActivityItem: React.FC<{ activity: Activity }> = ({ activity }) => {
           <p className="text-sm font-bold text-slate-900">{activity.time}</p>
         </div>
         <div className="space-y-1">
-          {points.length > 1 ? (
-            <ul className="list-disc list-inside text-soft-text leading-relaxed space-y-1">
-              {points.map((point, i) => (
-                <li key={i} className="pl-1"><span className="relative -left-1">{point}</span></li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-soft-text leading-relaxed">{activity.description}</p>
-          )}
+          <ul className="list-disc list-inside text-soft-text leading-relaxed space-y-1">
+            {points.map((point, i) => (
+              <li key={i} className="pl-1"><span className="relative -left-1">{point}</span></li>
+            ))}
+          </ul>
         </div>
       </div>
     </div>

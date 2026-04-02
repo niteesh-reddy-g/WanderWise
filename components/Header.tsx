@@ -16,14 +16,14 @@ export const Header: React.FC<HeaderProps> = ({ history, onSelectHistory, onClea
     <header className="bg-white/70 backdrop-blur-md border-b border-slate-200/50 sticky top-0 z-50">
       <div className="container mx-auto px-6 py-4 max-w-5xl">
         <div className="flex items-center justify-between">
-          <motion.div 
+            <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             className="flex items-center space-x-3 group cursor-pointer"
             onClick={() => window.location.reload()}
           >
-            <div className="bg-primary-600 p-2 rounded-xl shadow-lg shadow-primary-200 group-hover:scale-110 transition-transform duration-300">
-              <Globe className="w-7 h-7 text-white" />
+            <div className="p-1 rounded-xl shadow-lg shadow-primary-200 group-hover:scale-110 transition-transform duration-300">
+              <img src="/wanderwise logo.png" alt="WanderWise Logo" className="w-10 h-10" />
             </div>
             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
               Wander<span className="text-primary-600">Wise</span>

@@ -6,27 +6,38 @@ import { Footer } from './components/Footer';
 import type { Itinerary, TripDetails } from './types';
 import { generateItinerary } from './services/geminiService';
 import { motion } from 'motion/react';
-import { get, set, del } from 'idb-keyval';
+import { v4 as uuidv4 } from 'uuid';
+
+const getSessionId = () => {
+  let sessionId = localStorage.getItem('wanderwise_session_id');
+  if (!sessionId) {
+    sessionId = uuidv4();
+    localStorage.setItem('wanderwise_session_id', sessionId);
+  }
+  return sessionId;
+};
 
 const App: React.FC = () => {
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Itinerary[]>([]);
+  const sessionId = getSessionId();
 
   useEffect(() => {
     const loadHistory = async () => {
       try {
-        const savedHistory = await get<Itinerary[]>('tripHistory');
-        if (savedHistory) {
-          setHistory(savedHistory);
+        const response = await fetch(`/api/itineraries/${sessionId}`);
+        if (response.ok) {
+          const savedHistory = await response.json();
+          setHistory(savedHistory.reverse()); // Show newest first
         }
       } catch (e) {
-        console.error('Failed to load history from IndexedDB', e);
+        console.error('Failed to load history from cloud', e);
       }
     };
     loadHistory();
-  }, []);
+  }, [sessionId]);
 
   const handleFormSubmit = async (tripDetails: TripDetails) => {
     setIsLoading(true);
@@ -36,14 +47,16 @@ const App: React.FC = () => {
       const generatedItinerary = await generateItinerary(tripDetails);
       setItinerary(generatedItinerary);
       
-      // Save to history (IndexedDB has plenty of space, so we can keep images)
-      const newHistory = [generatedItinerary, ...history.slice(0, 19)];
-      setHistory(newHistory);
-      
+      // Save to cloud
       try {
-        await set('tripHistory', newHistory);
+        await fetch(`/api/itineraries/${sessionId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(generatedItinerary)
+        });
+        setHistory(prev => [generatedItinerary, ...prev]);
       } catch (storageError) {
-        console.error('Failed to save to IndexedDB', storageError);
+        console.error('Failed to save to cloud', storageError);
       }
     } catch (err) {
       console.error(err);
@@ -60,13 +73,17 @@ const App: React.FC = () => {
 
   const handleClearHistory = async () => {
     setHistory([]);
-    await del('tripHistory');
+    try {
+      await fetch(`/api/itineraries/${sessionId}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('Failed to clear history from cloud', e);
+    }
   };
 
   return (
     <div className="flex flex-col min-h-screen font-sans text-slate-800 bg-[#fdfbf7]">
       <Header history={history} onSelectHistory={handleSelectHistory} onClearHistory={handleClearHistory} />
-      <main className="flex-grow container mx-auto px-4 py-12 md:py-20 w-full max-w-5xl">
+      <main className="flex-grow container mx-auto px-6 md:px-12 py-12 md:py-20 w-full max-w-5xl">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -74,7 +91,7 @@ const App: React.FC = () => {
         >
           <div className="max-w-2xl mx-auto text-center mb-12">
             <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-4 tracking-tight">
-              Where will AI take you <span className="text-primary-600">next?</span>
+              Plan less. Explore <span className="text-green-600">more</span>
             </h2>
             <p className="text-lg text-soft-text font-medium">
               Plan your perfect trip from flights to hotels. Tell us your destination and we'll build a custom itinerary.

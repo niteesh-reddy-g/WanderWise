@@ -77,10 +77,10 @@ export const generateItinerary = async (tripDetails: TripDetails): Promise<Itine
 - Include flight planning: Suggest flight times and details for Day 1 (departure from ${origin}) and the last day (return to ${origin}).
 - Provide a mix of popular attractions and unique local experiences.
 - Suggest specific places, restaurants, or sights.
-- For each activity, provide a list of clear, concise bullet points. Each sentence MUST be its own bullet point. Do NOT write paragraphs.
+- For each activity, provide a list of clear, concise bullet points. EVERY sentence MUST be its own bullet point. Do NOT write paragraphs.
 - Use the format:
-  • First point
-  • Second point
+  • Sentence one.
+  • Sentence two.
 - Ensure the plan is logical and geographically sensible for each day.
 - The output MUST be a valid JSON object that strictly adheres to the provided schema. Do not include any markdown formatting like \`\`\`json.`;
 
@@ -149,8 +149,9 @@ export const generateItinerary = async (tripDetails: TripDetails): Promise<Itine
             waitTime *= 2; // Exponential backoff
             retries--;
           } else {
-            console.error(`Failed to generate image for Day ${day.day}:`, error);
-            hasImageErrors = true;
+            console.error(`Failed to generate image for Day ${day.day}, falling back to placeholder:`, errorMsg);
+            const seed = encodeURIComponent(`${destination}-${day.title}`.replace(/[^a-zA-Z0-9-]/g, ''));
+            imageUrl = `https://picsum.photos/seed/${seed}/800/450`;
             break; // Non-retryable error or no retries left
           }
         }

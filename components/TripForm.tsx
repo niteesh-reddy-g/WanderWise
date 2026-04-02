@@ -33,7 +33,7 @@ export const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading }) => {
         >
           <label htmlFor="origin" className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2">
             <MapPin className="w-4 h-4 text-primary-600" />
-            From
+            Source
           </label>
           <input
             type="text"
@@ -53,7 +53,7 @@ export const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading }) => {
         >
           <label htmlFor="destination" className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2">
             <MapPin className="w-4 h-4 text-primary-600" />
-            To
+            Destination
           </label>
           <input
             type="text"
@@ -101,7 +101,7 @@ export const TripForm: React.FC<TripFormProps> = ({ onSubmit, isLoading }) => {
           id="interests"
           value={interests}
           onChange={(e) => setInterests(e.target.value)}
-          placeholder="e.g., cheap flights, hotels near sites, use public transport, street food, historical sites..."
+          placeholder="e.g., affordable flights, hotels near sites, use public transport, street food, historical sites..."
           required
           rows={4}
           className="block w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-primary-400 transition-all resize-none"
